@@ -1372,12 +1372,31 @@ STARTMENUAPI bool DllExecuteNamedCommand( const wchar_t *command )
 	return true;
 }
 
+bool MakeUniqueFilePath( const wchar_t *folder, const wchar_t *fileName, wchar_t *result, int size )
+{
+	// "folder\name.ext", then "folder\name (2).ext", "folder\name (3).ext", ...
+	wchar_t base[_MAX_PATH];
+	Strcpy(base,_countof(base),fileName);
+	const wchar_t *ext=PathFindExtension(fileName);
+	base[ext-fileName]=0;
+	for (int i=1;i<1000;i++)
+	{
+		if (i==1)
+			Sprintf(result,size,L"%s\\%s%s",folder,base,ext);
+		else
+			Sprintf(result,size,L"%s\\%s (%d)%s",folder,base,i,ext);
+		if (GetFileAttributes(result)==INVALID_FILE_ATTRIBUTES)
+			return true;
+	}
+	return false;
+}
+
 HRESULT CreatePinLink( PCIDLIST_ABSOLUTE sourcePidl, const wchar_t *folder, const wchar_t *name, const wchar_t *iconPath, int iconIndex, CString *pFinalPath )
 {
-	wchar_t path[_MAX_PATH];
-	Sprintf(path,_countof(path),L"%s\\%s.lnk",folder,name);
+	wchar_t fileName[_MAX_PATH];
+	Sprintf(fileName,_countof(fileName),L"%s.lnk",name);
 	wchar_t finalPath[_MAX_PATH];
-	if (!PathYetAnotherMakeUniqueName(finalPath,folder,NULL,PathFindFileName(path)))
+	if (!MakeUniqueFilePath(folder,fileName,finalPath,_countof(finalPath)))
 		return E_FAIL;
 
 	HRESULT hr;
@@ -1398,6 +1417,8 @@ HRESULT CreatePinLink( PCIDLIST_ABSOLUTE sourcePidl, const wchar_t *folder, cons
 		CComQIPtr<IPersistFile> pFile(pLink);
 		if (!pFile) return E_FAIL;
 		hr=pFile->Save(finalPath,TRUE);
+		LOG_MENU(LOG_EXECUTE,L"CreatePinLink: '%s', hr=%08X",finalPath,hr);
+		if (FAILED(hr)) return hr;
 	}
 	{
 		// reopen the link and set the "no new" property. without reopening the original properties are lost

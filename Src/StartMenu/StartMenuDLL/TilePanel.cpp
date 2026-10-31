@@ -13,6 +13,7 @@
 #include "Settings.h"
 #include "Translations.h"
 #include "ComHelper.h"
+#include "LogManager.h"
 #include <windowsx.h>
 #include <algorithm>
 
@@ -178,7 +179,8 @@ void CTilePanel::CreatePanel( HWND menu )
 
 LRESULT CTilePanel::OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
 {
-	RegisterDragDrop(m_hWnd,this);
+	HRESULT hr=RegisterDragDrop(m_hWnd,this);
+	LOG_MENU(LOG_EXECUTE,L"Tiles: panel created, folder='%s', RegisterDragDrop hr=%08X",(const wchar_t*)m_Folder,hr);
 	return 0;
 }
 
@@ -200,11 +202,16 @@ LRESULT CTilePanel::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 
 bool CTilePanel::EnsureFolder( void )
 {
-	if (m_Folder.IsEmpty()) return false;
+	if (m_Folder.IsEmpty())
+	{
+		LOG_MENU(LOG_EXECUTE,L"Tiles: the tiles folder is not set");
+		return false;
+	}
 	DWORD attr=GetFileAttributes(m_Folder);
 	if (attr!=INVALID_FILE_ATTRIBUTES && (attr&FILE_ATTRIBUTE_DIRECTORY))
 		return true;
 	int res=SHCreateDirectory(NULL,m_Folder);
+	LOG_MENU(LOG_EXECUTE,L"Tiles: create folder '%s', res=%d",(const wchar_t*)m_Folder,res);
 	return res==ERROR_SUCCESS || res==ERROR_ALREADY_EXISTS || res==ERROR_FILE_EXISTS;
 }
 
@@ -261,6 +268,7 @@ void CTilePanel::LoadTiles( void )
 		tile.pInfo=g_ItemManager.GetItemInfo(tile.path,CItemManager::INFO_LINK|CItemManager::INFO_METRO|CItemManager::INFO_EXTRA_LARGE_ICON);
 		m_Tiles.push_back(tile);
 	}
+	LOG_MENU(LOG_EXECUTE,L"Tiles: loaded %d tiles from '%s'",(int)m_Tiles.size(),(const wchar_t*)m_Folder);
 }
 
 void CTilePanel::SaveOrder( void )
@@ -285,16 +293,20 @@ bool CTilePanel::CreateTileLink( PCIDLIST_ABSOLUTE pidl, const wchar_t *name, CS
 			&& SUCCEEDED(pItem->GetDisplayName(SIGDN_FILESYSPATH,&pPath)) && _wcsicmp(PathFindExtension(pPath),L".lnk")==0)
 		{
 			wchar_t finalPath[_MAX_PATH];
-			if (PathYetAnotherMakeUniqueName(finalPath,m_Folder,NULL,PathFindFileName(pPath)) && CopyFile(pPath,finalPath,TRUE))
+			if (MakeUniqueFilePath(m_Folder,PathFindFileName(pPath),finalPath,_countof(finalPath)) && CopyFile(pPath,finalPath,TRUE))
 			{
+				LOG_MENU(LOG_EXECUTE,L"Tiles: copied '%s' to '%s'",(const wchar_t*)pPath,finalPath);
 				fileName=PathFindFileName(finalPath);
 				return true;
 			}
+			LOG_MENU(LOG_EXECUTE,L"Tiles: failed to copy '%s', err=%d",(const wchar_t*)pPath,GetLastError());
 		}
 	}
 
 	CString finalPath;
-	if (FAILED(CreatePinLink(pidl,m_Folder,MakeValidFileName(name),NULL,0,&finalPath)) || finalPath.IsEmpty())
+	HRESULT hr=CreatePinLink(pidl,m_Folder,MakeValidFileName(name),NULL,0,&finalPath);
+	LOG_MENU(LOG_EXECUTE,L"Tiles: created link '%s' for '%s', hr=%08X",(const wchar_t*)finalPath,name?name:L"",hr);
+	if (FAILED(hr) || finalPath.IsEmpty())
 		return false;
 	fileName=PathFindFileName(finalPath);
 	return true;
@@ -318,6 +330,7 @@ void CTilePanel::InsertNewTiles( const std::vector<CString> &fileNames, int inse
 
 bool CTilePanel::PinItem( PCIDLIST_ABSOLUTE pidl, const wchar_t *name, int insertIndex )
 {
+	LOG_MENU(LOG_EXECUTE,L"Tiles: pin '%s'",name?name:L"");
 	CString fileName;
 	if (!CreateTileLink(pidl,name,fileName))
 		return false;
@@ -593,7 +606,10 @@ void CTilePanel::Draw( HDC hdc, const RECT &clientRect )
 	int r=0, g=0, b=0;
 	GetMetroGlassColor(r,g,b);
 	COLORREF bkColor=RGB(r,g,b);
-	COLORREF tileColor=GetSystemAccentColor();
+	// the accent color has alpha in the top byte, which is not a valid COLORREF
+	COLORREF tileColor=GetSystemAccentColor()&0xFFFFFF;
+	if (tileColor==0 || tileColor==bkColor)
+		tileColor=BlendColor(bkColor,IsLightColor(bkColor)?RGB(0,0,0):RGB(255,255,255),48);
 	COLORREF textColor=IsLightColor(tileColor)?RGB(0,0,0):RGB(255,255,255);
 	COLORREF hotColor=BlendColor(tileColor,IsLightColor(tileColor)?RGB(0,0,0):RGB(255,255,255),48);
 
@@ -1038,6 +1054,8 @@ static DWORD GetTileDropEffect( DWORD allowed )
 {
 	if (allowed&DROPEFFECT_LINK) return DROPEFFECT_LINK;
 	if (allowed&DROPEFFECT_COPY) return DROPEFFECT_COPY;
+	// some sources (like the Apps items in the menu) only offer "move". accept it, but Drop reports DROPEFFECT_NONE so the source never deletes anything
+	if (allowed&DROPEFFECT_MOVE) return DROPEFFECT_MOVE;
 	return DROPEFFECT_NONE;
 }
 
@@ -1047,8 +1065,10 @@ HRESULT STDMETHODCALLTYPE CTilePanel::DragEnter( IDataObject *pDataObj, DWORD gr
 	if (pDataObj)
 	{
 		CComPtr<IShellItemArray> pArray;
-		if (SUCCEEDED(SHCreateShellItemArrayFromDataObject(pDataObj,IID_IShellItemArray,(void**)&pArray)))
+		HRESULT hr=SHCreateShellItemArrayFromDataObject(pDataObj,IID_IShellItemArray,(void**)&pArray);
+		if (SUCCEEDED(hr))
 			m_bDropValid=true;
+		LOG_MENU(LOG_EXECUTE,L"Tiles: drag enter, hr=%08X, effect=%d",hr,*pdwEffect);
 	}
 	DWORD effect=m_bDropValid?GetTileDropEffect(*pdwEffect):DROPEFFECT_NONE;
 	if (!m_pDropTargetHelper)
@@ -1101,6 +1121,7 @@ HRESULT STDMETHODCALLTYPE CTilePanel::Drop( IDataObject *pDataObj, DWORD grfKeyS
 		m_pDropTargetHelper->Drop(pDataObj,&p,effect);
 	int insertIndex=m_InsertIndex;
 	bool bValid=m_bDropValid;
+	LOG_MENU(LOG_EXECUTE,L"Tiles: drop, valid=%d, index=%d",bValid?1:0,insertIndex);
 	m_bDropValid=false;
 	m_InsertIndex=-1;
 	*pdwEffect=DROPEFFECT_NONE;
@@ -1131,7 +1152,7 @@ HRESULT STDMETHODCALLTYPE CTilePanel::Drop( IDataObject *pDataObj, DWORD grfKeyS
 			if (!fileNames.empty())
 			{
 				InsertNewTiles(fileNames,insertIndex);
-				*pdwEffect=effect;
+				*pdwEffect=(effect==DROPEFFECT_MOVE)?DROPEFFECT_NONE:effect;
 			}
 		}
 	}

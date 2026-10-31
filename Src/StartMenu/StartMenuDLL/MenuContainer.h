@@ -1146,5 +1146,8 @@ typedef BOOL (WINAPI *tSetWindowCompositionAttribute)( HWND hwnd, WINCOMPATTRDAT
 
 void MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha );
 
+// Returns a path in the folder for the file name that doesn't exist yet (adds " (2)", " (3)"... if needed)
+bool MakeUniqueFilePath( const wchar_t *folder, const wchar_t *fileName, wchar_t *result, int size );
+
 // Creates a shortcut to the given item in the given folder. Optionally returns the path of the new shortcut
 HRESULT CreatePinLink( PCIDLIST_ABSOLUTE sourcePidl, const wchar_t *folder, const wchar_t *name, const wchar_t *iconPath, int iconIndex, CString *pFinalPath=NULL );

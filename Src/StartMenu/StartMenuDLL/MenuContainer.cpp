@@ -5391,7 +5391,7 @@ LRESULT CMenuContainer::OnTimer( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& 
 			else
 				name[0]=0;
 
-			if (_wcsicmp(name,L"OpenShell.CMenuContainer")!=0)
+			if (_wcsicmp(name,L"OpenShell.CMenuContainer")!=0 && _wcsicmp(name,L"OpenShell.CTilePanel")!=0) // dragging over the tile panel counts as inside the menu
 			{
 				int dt=GetMessageTime()-m_DragTime;
 				if (dt>GetSettingInt(L"DragHideDelay"))
