@@ -283,6 +283,7 @@ public:
 		MESSAGE_HANDLER( WM_CREATE, OnCreate )
 		MESSAGE_HANDLER( WM_DESTROY, OnDestroy )
 		MESSAGE_HANDLER( WM_SHOWWINDOW, OnShowWindow )
+		MESSAGE_HANDLER( WM_WINDOWPOSCHANGED, OnWindowPosChanged )
 		MESSAGE_HANDLER( WM_PAINT, OnPaint )
 		MESSAGE_HANDLER( WM_PRINTCLIENT, OnPaint )
 		MESSAGE_HANDLER( WM_ERASEBKGND, OnEraseBkgnd )
@@ -366,6 +367,7 @@ protected:
 	LRESULT OnCreate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnShowWindow( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
+	LRESULT OnWindowPosChanged( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnRefresh( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnPaint( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled );
 	LRESULT OnEraseBkgnd( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled ) { return 1; }
@@ -721,6 +723,7 @@ private:
 		CMD_RENAME,
 		CMD_MARKOLD,
 		CMD_UNINSTALL,
+		CMD_PINTILE,
 
 		CMD_LAST,
 		CMD_MAX=32767
@@ -956,7 +959,7 @@ private:
 	friend class COwnerWindow;
 	friend class CMenuAccessible;
 	friend LRESULT CALLBACK SubclassTopMenuProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData );
-	friend HRESULT CreatePinLink( PCIDLIST_ABSOLUTE sourcePidl, const wchar_t *name, const wchar_t *iconPath, int iconIndex );
+	friend class CTilePanel;
 
 	static void AddMRUShortcut( const wchar_t *path );
 	static void AddMRUAppId( const wchar_t *appid );
@@ -1028,6 +1031,7 @@ private:
 	void OpenJumpList( int index, bool bKeyboard );
 	void OpenSearchList( void );
 	void AnimateBackground( void );
+	void UpdateTilePanel( void ); // positions the Windows 10-style tile panel next to the main menu
 
 	CProgramsTree *m_pProgramsTree;
 	int m_ProgramButtonIndex;
@@ -1141,3 +1145,6 @@ struct WINCOMPATTRDATA
 typedef BOOL (WINAPI *tSetWindowCompositionAttribute)( HWND hwnd, WINCOMPATTRDATA *pAttrData );
 
 void MarginsBlit( HDC hSrc, HDC hDst, const RECT &rSrc, const RECT &rDst, const RECT &rMargins, bool bAlpha );
+
+// Creates a shortcut to the given item in the given folder. Optionally returns the path of the new shortcut
+HRESULT CreatePinLink( PCIDLIST_ABSOLUTE sourcePidl, const wchar_t *folder, const wchar_t *name, const wchar_t *iconPath, int iconIndex, CString *pFinalPath=NULL );

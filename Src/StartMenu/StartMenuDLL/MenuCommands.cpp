@@ -18,6 +18,7 @@
 #include "ResourceHelper.h"
 #include "MetroLinkManager.h"
 #include "ProgramsTree.h"
+#include "TilePanel.h"
 #include "resource.h"
 #include <WtsApi32.h>
 #include <PowrProf.h>
@@ -1371,12 +1372,13 @@ STARTMENUAPI bool DllExecuteNamedCommand( const wchar_t *command )
 	return true;
 }
 
-static HRESULT CreatePinLink( PCIDLIST_ABSOLUTE sourcePidl, const wchar_t *name, const wchar_t *iconPath, int iconIndex )
+HRESULT CreatePinLink( PCIDLIST_ABSOLUTE sourcePidl, const wchar_t *folder, const wchar_t *name, const wchar_t *iconPath, int iconIndex, CString *pFinalPath )
 {
 	wchar_t path[_MAX_PATH];
-	Sprintf(path,_countof(path),L"%s\\%s.lnk",CMenuContainer::s_PinFolder,name);
+	Sprintf(path,_countof(path),L"%s\\%s.lnk",folder,name);
 	wchar_t finalPath[_MAX_PATH];
-	PathYetAnotherMakeUniqueName(finalPath,path,NULL,PathFindFileName(path));
+	if (!PathYetAnotherMakeUniqueName(finalPath,folder,NULL,PathFindFileName(path)))
+		return E_FAIL;
 
 	HRESULT hr;
 	{
@@ -1422,6 +1424,8 @@ static HRESULT CreatePinLink( PCIDLIST_ABSOLUTE sourcePidl, const wchar_t *name,
 		SetFileTime(h,&curTime,&curTime,&curTime);
 		CloseHandle(h);
 	}
+	if (pFinalPath)
+		*pFinalPath=finalPath;
 	return S_OK;
 }
 
@@ -2217,6 +2221,15 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 		}
 	}
 
+	if (g_TilePanel.m_hWnd && type==ACTIVATE_MENU && pItemPidl1 && !item.bFolder && item.jumpIndex<0
+		&& item.id!=MENU_EMPTY && item.id!=MENU_EMPTY_TOP && item.id!=MENU_SEARCH_CATEGORY && item.id!=MENU_APPS)
+	{
+		// add "Pin to tiles" for the Windows 10-style tile panel
+		int pos=insertBefore>=0?insertBefore:GetMenuItemCount(menu);
+		InsertMenu(menu,pos,MF_BYPOSITION|MF_STRING,CMD_PINTILE,FindTranslation(L"Menu.PinTile",L"Pin to &tiles"));
+		if (insertBefore>=0) insertBefore++;
+	}
+
 	if (item.bMetroLink && type==ACTIVATE_MENU && insertSecondary>=0)
 	{
 		pSecondaryMenu=GetMetroPinMenu(_appId);
@@ -2534,8 +2547,14 @@ void CMenuContainer::ActivateItem( int index, TActivateType type, const POINT *p
 				iconPath = L"%windir%\\ImmersiveControlPanel\\systemsettings.exe";
 		}
 
-		CreatePinLink(pItemPidl1, item.name, iconPath.IsEmpty() ? nullptr : iconPath.GetString(), 0);
+		CreatePinLink(pItemPidl1, s_PinFolder, item.name, iconPath.IsEmpty() ? nullptr : iconPath.GetString(), 0);
 		m_bRefreshItems=true;
+	}
+
+	if (res==CMD_PINTILE)
+	{
+		g_TilePanel.PinItem(pItemPidl1,item.name);
+		res=0;
 	}
 
 	// handle our standard commands

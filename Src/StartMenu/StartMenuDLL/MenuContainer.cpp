@@ -20,6 +20,7 @@
 #include "SettingsUI.h"
 #include "MetroLinkManager.h"
 #include "ProgramsTree.h"
+#include "TilePanel.h"
 #include "dllmain.h"
 #include "resource.h"
 #include <uxtheme.h>
@@ -4323,6 +4324,7 @@ void CMenuContainer::InitWindowFinalize( const RECT &menuRect )
 	if (m_bSubMenu || !s_bWin7Style || s_OldMenuState.mode==MODE_UNKNOWN)
 		ApplyRegion(TRUE);
 	Invalidate();
+	UpdateTilePanel();
 }
 
 void CMenuContainer::ApplyRegion( BOOL bRedraw )
@@ -4986,6 +4988,7 @@ LRESULT CMenuContainer::OnRefreshIcons( UINT uMsg, WPARAM wParam, LPARAM lParam,
 			if (m_pProgramsTree && m_pProgramsTree->m_hWnd)
 				m_pProgramsTree->Invalidate();
 		}
+	g_TilePanel.RefreshIcons();
 	return 0;
 }
 
@@ -6240,6 +6243,9 @@ LRESULT CMenuContainer::OnDestroy( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		if (s_UserPicture.m_hWnd)
 			s_UserPicture.DestroyWindow();
 		s_UserPicture.m_hWnd=NULL;
+		if (g_TilePanel.m_hWnd)
+			g_TilePanel.DestroyWindow();
+		g_TilePanel.m_hWnd=NULL;
 		s_pHotMenu=NULL;
 		s_HotItem=-1;
 		if (!m_bSubMenu)
@@ -6301,8 +6307,34 @@ LRESULT CMenuContainer::OnShowWindow( UINT uMsg, WPARAM wParam, LPARAM lParam, B
 {
 	if (!wParam && !m_bSubMenu && s_UserPicture)
 		s_UserPicture.ShowWindow(SW_HIDE);
+	if (!wParam && !m_bSubMenu)
+		g_TilePanel.HidePanel();
 	bHandled=FALSE;
 	return 0;
+}
+
+LRESULT CMenuContainer::OnWindowPosChanged( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
+{
+	UpdateTilePanel();
+	bHandled=FALSE;
+	return 0;
+}
+
+void CMenuContainer::UpdateTilePanel( void )
+{
+	if (!g_TilePanel.m_hWnd || m_bSubMenu || s_Menus.empty() || s_Menus[0]!=this)
+		return;
+	RECT rc;
+	GetWindowRect(&rc);
+	if (s_Skin.Main_opacity!=MenuSkin::OPACITY_SOLID && m_rMenu.right>m_rMenu.left)
+	{
+		// the window can be wider than the visible menu, use only the visible part
+		RECT rMenu=m_rMenu;
+		MapWindowPoints(NULL,&rMenu);
+		rc.left=rMenu.left<rMenu.right?rMenu.left:rMenu.right;
+		rc.right=rMenu.left<rMenu.right?rMenu.right:rMenu.left;
+	}
+	g_TilePanel.UpdatePosition(rc,(m_Options&CONTAINER_LEFT)!=0,IsWindowVisible() && !m_bClosing && !m_bDestroyed);
 }
 
 LRESULT CMenuContainer::OnRefresh( UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled )
@@ -6432,7 +6464,7 @@ LRESULT CMenuContainer::OnActivate( UINT uMsg, WPARAM wParam, LPARAM lParam, BOO
 			if ((*it)->m_hWnd==(HWND)lParam || (*it)->m_SearchBox.m_hWnd==(HWND)lParam)
 				return 0;
 
-		if ((HWND)lParam==g_OwnerWindow || (HWND)lParam==g_TopWin7Menu)
+		if ((HWND)lParam==g_OwnerWindow || (HWND)lParam==g_TopWin7Menu || (HWND)lParam==g_TilePanel.m_hWnd)
 			return 0;
 	}
 
@@ -8225,6 +8257,8 @@ HWND CMenuContainer::ToggleStartMenu( int taskbarId, bool bKeyboard, bool bAllPr
 		s_UserPicture.Create(pStartMenu->m_hWnd,NULL,NULL,WS_POPUP,WS_EX_TOOLWINDOW|WS_EX_LAYERED);
 		s_UserPicture.Init(pStartMenu);
 	}
+	if (s_bWin7Style && !s_bAllPrograms && GetSettingBool(L"Win10Tiles"))
+		g_TilePanel.CreatePanel(pStartMenu->m_hWnd);
 	dummyRc.right++;
 	pStartMenu->SetWindowPos(NULL,&dummyRc,SWP_NOZORDER|SWP_NOACTIVATE);
 
@@ -9183,6 +9217,7 @@ void CMenuContainer::AnimateBackground( void )
 
 	Invalidate();
 	ApplyRegion(TRUE);
+	UpdateTilePanel();
 }
 
 void CMenuContainer::InitializeOldState( void )

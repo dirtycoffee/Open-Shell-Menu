@@ -1337,6 +1337,12 @@ BEGIN
     IDS_OPEN_TRUE_PATH_TIP  "When this is checked, pinned folders will open to their true path instead of the path to their shortcut in the Pinned Programs folder"
     IDS_PINNED_PATH         "Pinned folder path"
     IDS_PINNED_PATH_TIP     "The path to use as the Pinned folder. If the path does not exist, it will be created (if possible) after opening the start menu. Close this window after updating this setting to update your context menu.\n\nNote: If you do not have permissions for the selected path, you will not be able to pin items until you take ownership of the new folder"
+    IDS_WIN10_TILES         "Show Windows 10-style tile panel"
+    IDS_WIN10_TILES_TIP     "When this is checked, a panel with tiles is shown next to the main menu. Right-click a program and select 'Pin to tiles', or drag it onto the panel. Drag the outer edge of the panel to make it wider or narrower"
+    IDS_TILE_SIZE           "Tile size"
+    IDS_TILE_SIZE_TIP       "The size of the tiles in pixels at 100% DPI scaling"
+    IDS_TILES_PATH          "Tiles folder path"
+    IDS_TILES_PATH_TIP      "The folder that stores the shortcuts shown as tiles. The folder is created when the first tile is pinned. You can also copy shortcuts there manually"
 END
 
 #endif    // English (U.S.) resources

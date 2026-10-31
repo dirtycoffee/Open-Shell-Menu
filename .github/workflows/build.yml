@@ -12,6 +12,14 @@ on:
       - 'Localization/**'
       - '.github/workflows/build.yml'
 
+  push:
+    branches:
+      - 'claude/inspiring-ptolemy-ybgk3k' # feature branch of this fork: compile every push
+    paths:
+      - 'Src/**'
+      - 'Localization/**'
+      - '.github/workflows/build.yml'
+
   workflow_dispatch:  # allows manual trigger for main/master
 
 jobs:
@@ -31,6 +39,13 @@ jobs:
         run: |
           # Fetch latest tag
           $latestTag = git describe --tags --abbrev=0 2>$null
+
+          if ($latestTag -notmatch '^v\d+\.\d+\.\d+$') {
+            # forks usually don't have the release tags. get them from the upstream repository
+            Write-Host "No version tag found, fetching tags from upstream"
+            git fetch --no-recurse-submodules https://github.com/Open-Shell/Open-Shell-Menu.git '+refs/tags/v*:refs/tags/v*' 2>$null
+            $latestTag = git describe --tags --abbrev=0 --match 'v*' 2>$null
+          }
 
           if ($latestTag -notmatch '^v\d+\.\d+\.\d+$') {
             Write-Error "Error: Could not find a valid vX.Y.Z tag in history. Found: '$latestTag'"

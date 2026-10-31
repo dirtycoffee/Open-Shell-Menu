@@ -18,6 +18,27 @@ A collection of utilities bringing back classic features to Windows.
 - Classic copy UI (Windows 7 only)
 - Title bar and status bar for Internet Explorer
 
+### Windows 10-style tile panel (this fork)
+> [!NOTE]
+> This is a fork of [Open-Shell/Open-Shell-Menu](https://github.com/Open-Shell/Open-Shell-Menu). The tile panel is not part of the official Open-Shell releases.
+
+The tile panel is an optional panel next to the Windows 7-style Start menu that shows pinned programs as square tiles, similar to the Windows 10 Start menu. It is drawn by Open-Shell itself and does not depend on any Windows Start menu components.
+
+- **Pin:** right-click a program in the menu and choose *Pin to tiles*, or drag a program (or any file or shortcut) onto the panel.
+- **Reorder:** drag a tile to a new position.
+- **Unpin:** right-click a tile and choose *Unpin from tiles*.
+- **Resize:** drag the outer edge of the panel to make it wider or narrower. The tiles reflow and the width is remembered.
+
+The tiles are ordinary shortcuts stored in `%APPDATA%\OpenShell\Tiles` (setting *Tiles folder path*), so you can also copy shortcuts there by hand. The order is stored in the `TileOrder` value under `HKCU\Software\OpenShell\StartMenu`, and the width in `TilePanelWidth`.
+
+To get a Windows 10-like look, open the Open-Shell Menu settings, check *Show all settings*, and set:
+1. **Start Menu Style:** Windows 7 style
+2. **Main Menu** tab: *All Programs style* = *Inside main menu*, and check *Open automatically* (shows the programs list right away)
+3. **Skin** tab: *Metro*
+4. **Main Menu** tab: check *Show Windows 10-style tile panel* (optionally adjust *Tile size*)
+
+The panel is not available in the Classic styles or in the "All Programs only" menu.
+
 ### Download
 You can find the latest stable version here:
 
