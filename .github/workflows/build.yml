@@ -60,6 +60,9 @@ jobs:
           if ("${{ github.event_name }}" -eq "pull_request") {
             $shortSha = "${{ github.event.pull_request.head.sha }}".Substring(0, 7)
             $finalVersion = "$baseVersion-pr-$shortSha"
+          } elseif ("${{ github.event_name }}" -eq "push") {
+            # feature branch builds: bump the version on every run, so each installer can upgrade the previous one
+            $finalVersion = "$($version.Major).$($version.Minor).$($version.Build + ${{ github.run_number }})"
           } else {
             $finalVersion = $baseVersion
           }
